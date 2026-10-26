@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kuis Interaktif 30 Soal - Luas Bangun Datar</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Google Font: Fredoka -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Fredoka', cursive, sans-serif; }
+    </style>
+</head>
+<body class="bg-sky-50 text-slate-800 min-h-screen flex flex-col justify-between" x-data="quizApp()" x-init="initQuiz()">
+
+    <!-- Header Navbar -->
+    <header class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-lg sticky top-0 z-40">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white/20 p-2 rounded-2xl backdrop-blur-sm">
+                    <span class="text-2xl">📐</span>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold">Super Kuis Luas Bangun Datar</h1>
+                    <p class="text-xs text-indigo-100">Segitiga • Layang-Layang • Belah Ketupat (30 Soal)</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <div class="bg-white/20 px-3 py-1.5 rounded-xl backdrop-blur-sm text-sm font-bold flex items-center gap-2">
+                    <span>🏆 Skor:</span>
+                    <span class="text-amber-300 text-base" x-text="calculateScore()"></span>
+                    <span class="text-xs opacity-75">/ 30</span>
+                </div>
+                <button @click="resetQuiz()" title="Reset Kuis" class="bg-red-500/80 hover:bg-red-600 text-white text-xs font-bold px-3 py-2 rounded-xl transition">
+                    🔄 Reset
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-5xl mx-auto px-4 py-6 flex-grow w-full grid grid-cols-1 lg:grid-cols-4 gap-6">
+
+        <!-- Sidebar Navigation Drawer / Grid (1 Col on LG) -->
+        <aside class="lg:col-span-1 bg-white p-5 rounded-3xl shadow-xl border-4 border-indigo-100 h-fit space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <span>🧭</span> Navigasi Soal
+                </h3>
+                <span class="text-xs font-semibold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full" x-text="answeredCount() + '/30 Dijawab'"></span>
+            </div>
+
+            <!-- Grid Number Buttons -->
+            <div class="grid grid-cols-5 gap-2 max-h-72 lg:max-h-none overflow-y-auto p-1">
+                <template x-for="(q, idx) in questions" :key="q.id">
+                    <button @click="currentIdx = idx"
+                        :class="{
+                            'ring-4 ring-indigo-400 font-black scale-105 z-10': currentIdx === idx,
+                            'bg-emerald-500 text-white border-emerald-600': userAnswers[q.id] !== undefined && userAnswers[q.id] === q.correct,
+                            'bg-rose-500 text-white border-rose-600': userAnswers[q.id] !== undefined && userAnswers[q.id] !== q.correct,
+                            'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200': userAnswers[q.id] === undefined
+                        }"
+                        class="h-9 w-full rounded-xl font-bold text-xs border-b-2 flex items-center justify-center transition-all duration-150">
+                        <span x-text="idx + 1"></span>
+                    </button>
+                </template>
+            </div>
+
+            <!-- Legend -->
+            <div class="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-[11px] text-slate-500 font-medium">
+                <div class="flex items-center gap-1.5">
+                    <div class="w-3 h-3 rounded-md bg-emerald-500"></div> Benar
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-3 h-3 rounded-md bg-rose-500"></div> Salah
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-3 h-3 rounded-md bg-slate-200 border border-slate-300"></div> Belum
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <div class="w-3 h-3 rounded-md ring-2 ring-indigo-400 bg-white"></div> Aktif
+                </div>
+            </div>
+        </aside>
+
+        <!-- Question View Area (3 Cols on LG) -->
+        <section class="lg:col-span-3 bg-white p-6 sm:p-8 rounded-3xl shadow-xl border-4 border-indigo-100 flex flex-col justify-between space-y-6">
+            
+            <template x-if="questions.length > 0">
+                <div class="space-y-6">
+                    <!-- Top Question Header Info -->
+                    <div class="flex justify-between items-center border-b pb-4 border-slate-100">
+                        <span class="px-3 py-1 rounded-full text-xs font-bold"
+                            :class="{
+                                'bg-pink-100 text-pink-700': currentQ.type === 'segitiga',
+                                'bg-purple-100 text-purple-700': currentQ.type === 'layang',
+                                'bg-emerald-100 text-emerald-700': currentQ.type === 'belah'
+                            }">
+                            <span x-text="currentQ.categoryLabel"></span>
+                        </span>
+                        <span class="text-xs text-slate-400 font-semibold">
+                            Soal <span class="text-indigo-600 font-bold" x-text="currentIdx + 1"></span> dari 30
+                        </span>
+                    </div>
+
+                    <!-- Question Text -->
+                    <div class="space-y-4">
+                        <h2 class="text-lg sm:text-xl font-bold text-slate-800 leading-relaxed" x-text="currentQ.text"></h2>
+                        
+                        <!-- Dynamic SVG Illustration Container -->
+                        <div class="bg-indigo-50/60 p-4 rounded-2xl border-2 border-indigo-100 flex flex-col items-center justify-center my-3 min-h-[180px]">
+                            <div class="w-full max-w-[260px] flex justify-center" x-html="renderSVG(currentQ)"></div>
+                            <span class="text-[11px] text-slate-400 font-medium mt-2">📐 Diagram Bangun Datar</span>
+                        </div>
+                    </div>
+
+                    <!-- Options Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        <template x-for="(opt, oIdx) in currentQ.options" :key="oIdx">
+                            <button @click="selectAnswer(currentQ.id, oIdx)"
+                                :disabled="userAnswers[currentQ.id] !== undefined"
+                                :class="{
+                                    'bg-emerald-100 border-emerald-500 text-emerald-900 font-bold': userAnswers[currentQ.id] !== undefined && oIdx === currentQ.correct,
+                                    'bg-rose-100 border-rose-500 text-rose-900 font-bold': userAnswers[currentQ.id] !== undefined && userAnswers[currentQ.id] === oIdx && oIdx !== currentQ.correct,
+                                    'bg-white border-slate-200 text-slate-700 hover:border-indigo-400 hover:bg-indigo-50/50': userAnswers[currentQ.id] === undefined,
+                                    'opacity-50 cursor-not-allowed': userAnswers[currentQ.id] !== undefined && oIdx !== currentQ.correct && userAnswers[currentQ.id] !== oIdx
+                                }"
+                                class="p-4 rounded-2xl border-2 text-left font-medium text-sm transition-all duration-200 flex items-center justify-between group">
+                                <div class="flex items-center gap-3">
+                                    <span class="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold shrink-0"
+                                        :class="{
+                                            'bg-emerald-500 text-white': userAnswers[currentQ.id] !== undefined && oIdx === currentQ.correct,
+                                            'bg-rose-500 text-white': userAnswers[currentQ.id] !== undefined && userAnswers[currentQ.id] === oIdx && oIdx !== currentQ.correct,
+                                            'bg-slate-100 text-slate-500 group-hover:bg-indigo-100 group-hover:text-indigo-700': userAnswers[currentQ.id] === undefined
+                                        }"
+                                        x-text="['A','B','C','D'][oIdx]">
+                                    </span>
+                                    <span x-text="opt"></span>
+                                </div>
+                                <span x-show="userAnswers[currentQ.id] !== undefined && oIdx === currentQ.correct" class="text-emerald-600 font-bold text-lg">✓</span>
+                                <span x-show="userAnswers[currentQ.id] !== undefined && userAnswers[currentQ.id] === oIdx && oIdx !== currentQ.correct" class="text-rose-600 font-bold text-lg">✗</span>
+                            </button>
+                        </template>
+                    </div>
+
+                    <!-- Instant Feedback & Explanation Box -->
+                    <div x-show="userAnswers[currentQ.id] !== undefined" x-transition class="p-5 rounded-2xl border-2 space-y-2"
+                        :class="userAnswers[currentQ.id] === currentQ.correct ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'">
+                        <div class="flex items-center gap-2 font-bold text-sm">
+                            <span x-text="userAnswers[currentQ.id] === currentQ.correct ? '🎉 Benar Sekali!' : '❌ Masih Belum Tepat'"></span>
+                        </div>
+                        <p class="text-xs sm:text-sm leading-relaxed" x-html="currentQ.explanation"></p>
+                    </div>
+
+                </div>
+            </template>
+
+            <!-- Bottom Action Navigation Controls -->
+            <div class="flex justify-between items-center pt-4 border-t border-slate-100">
+                <button @click="prevQ()" :disabled="currentIdx === 0"
+                    class="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                    ← Sebelum
+                </button>
+
+                <div class="text-xs text-slate-400 font-medium hidden sm:block">
+                    Jaringan Terputus? Progress Tetap Tersimpan Otomatis! 💾
+                </div>
+
+                <button @click="nextQ()" :disabled="currentIdx === questions.length - 1"
+                    class="px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-md">
+                    Berikut →
+                </button>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 text-center text-slate-400 text-xs mt-6">
+        <p>✨ Kuis Matematika Luas Bangun Datar SD Kelas 4 • Menyimpan Otomatis di Perangkat Anda ✨</p>
+    </footer>
+
+    <script>
+        function quizApp() {
+            return {
+                currentIdx: 0,
+                userAnswers: {},
+                questions: [
+                    // --- SEGITIGA (1-10) ---
+                    {
+                        id: 1, type: 'segitiga', categoryLabel: '🔺 Segitiga',
+                        text: 'Sebuah segitiga mempunyai panjang alas 10 cm dan tinggi 8 cm. Berapakah luas segitiga tersebut?',
+                        options: ['80 cm²', '40 cm²', '18 cm²', '20 cm²'], correct: 1,
+                        a: 10, t: 8,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × alas × tinggi = ½ × 10 × 8 = 5 × 8 = <b>40 cm²</b>.'
+                    },
+                    {
+                        id: 2, type: 'segitiga', categoryLabel: '🔺 Segitiga',
+                        text: 'Segitiga siku-siku memiliki alas 12 cm dan tinggi 15 cm. Luas segitiga tersebut adalah...',
+                        options: ['180 cm²', '27 cm²', '90 cm²', '60 cm²'], correct: 2,
+                        a: 12, t: 15, shapeSubtype: 'siku',
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × alas × tinggi = ½ × 12 × 15 = 6 × 15 = <b>90 cm²</b>.'
+                    },
+                    {
+                        id: 3, type: 'segitiga', categoryLabel: '🔺 Segitiga',
+                        text: 'Atap sebuah rumah berbentuk segitiga dengan alas 14 meter dan tinggi 6 meter. Berapa luas permukaan atap tersebut?',
+                        options: ['42 m²', '84 m²', '20 m²', '48 m²'], correct: 0,
+                        a: 14, t: 6, unit: 'm',
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 14 × 6 = 7 × 6 = <b>42 m²</b>.'
+                    },
+                    {
+                        id: 4, type: 'segitiga', categoryLabel: '🔺 Segitiga',
+                        text: 'Sebuah segitiga memiliki luas 50 cm² dan tinggi 10 cm. Berapakah panjang alas segitiga tersebut?',
+                        options: ['5 cm', '20 cm', '10 cm', '15 cm'], correct: 2,
+                        a: '?', t: 10,
+                        explanation: '💡 <b>Pembahasan:</b><br>Alas = (2 × Luas) ÷ tinggi = (2 × 50) ÷ 10 = 100 ÷ 10 = <b>10 cm</b>.'
+                    },
+                    {
+                        id: 5, type: 'segitiga', categoryLabel: '🔺 Segitiga',
+                        text: 'Panjang alas segitiga hiasan adalah 18 cm dan tingginya 7 cm. Hitunglah luasnya!',
+                        options: ['126 cm²', '25 cm²', '63 cm²', '54 cm²'], correct: 2,
+                        a: 18, t: 7,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 18 × 7 = 9 × 7 = <b>63 cm²</b>.'
+                    },
+                    {
+                        id: 6, type: 'segitiga', categoryLabel: '🔺 Segitiga',
+                        text: 'Rudi membuat papan petunjuk berbentuk segitiga sama kaki dengan alas 20 cm dan tinggi 16 cm. Luasnya adalah...',
+                        options: ['160 cm²', '320 cm²', '80 cm²', '36 cm²'], correct: 0,
+                        a: 20, t: 16,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 20 × 16 = 10 × 16 = <b>160 cm²</b>.'
+                    },
+                    {
+                        id: 7, type: 'segitiga', categoryLabel: '🔺 Segitiga',
+                        text: 'Luas sebuah segitiga adalah 36 cm². Jika panjang alasnya 9 cm, berapakah tingginya?',
+                        options: ['4 cm', '8 cm', '12 cm', '16 cm'], correct: 1,
+                        a: 9, t: '?',
+                        explanation: '💡 <b>Pembahasan:</b><br>Tinggi = (2 × Luas) ÷ alas = (2 × 36) ÷ 9 = 72 ÷ 9 = <b>8 cm</b>.'
+                    },
+                    {
+                        id: 8, type: 'segitiga', categoryLabel: '🔺 Segitiga',
+                        text: 'Potongan roti berbentuk segitiga mempunyai alas 8 cm dan tinggi 11 cm. Luas roti tersebut adalah...',
+                        options: ['88 cm²', '22 cm²', '44 cm²', '19 cm²'], correct: 2,
+                        a: 8, t: 11,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 8 × 11 = 4 × 11 = <b>44 cm²</b>.'
+                    },
+                    {
+                        id: 9, type: 'segitiga', categoryLabel: '🔺 Segitiga',
+                        text: 'Suatu segitiga memiliki alas 24 cm dan tinggi 5 cm. Berapa luas segitiga tersebut?',
+                        options: ['60 cm²', '120 cm²', '29 cm²', '50 cm²'], correct: 0,
+                        a: 24, t: 5,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 24 × 5 = 12 × 5 = <b>60 cm²</b>.'
+                    },
+                    {
+                        id: 10, type: 'segitiga', categoryLabel: '🔺 Segitiga',
+                        text: 'Penggaris segitiga memiliki alas 16 cm dan tinggi 12 cm. Luas penggaris adalah...',
+                        options: ['192 cm²', '96 cm²', '28 cm²', '48 cm²'], correct: 1,
+                        a: 16, t: 12, shapeSubtype: 'siku',
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 16 × 12 = 8 × 12 = <b>96 cm²</b>.'
+                    },
+
+                    // --- LAYANG-LAYANG (11-20) ---
+                    {
+                        id: 11, type: 'layang', categoryLabel: '🪁 Layang-Layang',
+                        text: 'Sebuah layang-layang memiliki diagonal d₁ = 16 cm dan d₂ = 10 cm. Luas layang-layang adalah...',
+                        options: ['160 cm²', '80 cm²', '26 cm²', '40 cm²'], correct: 1,
+                        d1: 16, d2: 10,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × d₁ × d₂ = ½ × 16 × 10 = 8 × 10 = <b>80 cm²</b>.'
+                    },
+                    {
+                        id: 12, type: 'layang', categoryLabel: '🪁 Layang-Layang',
+                        text: 'Ayah membuat layang-layang kertas dengan panjang d₁ = 20 cm dan d₂ = 14 cm. Berapa luas kertas yang dibutuhkan?',
+                        options: ['140 cm²', '280 cm²', '34 cm²', '70 cm²'], correct: 0,
+                        d1: 20, d2: 14,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 20 × 14 = 10 × 14 = <b>140 cm²</b>.'
+                    },
+                    {
+                        id: 13, type: 'layang', categoryLabel: '🪁 Layang-Layang',
+                        text: 'Hiasan dinding berbentuk layang-layang memiliki diagonal 12 cm dan 18 cm. Berapakah luasnya?',
+                        options: ['216 cm²', '30 cm²', '108 cm²', '54 cm²'], correct: 2,
+                        d1: 18, d2: 12,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 12 × 18 = 6 × 18 = <b>108 cm²</b>.'
+                    },
+                    {
+                        id: 14, type: 'layang', categoryLabel: '🪁 Layang-Layang',
+                        text: 'Diketahui luas layang-layang adalah 90 cm² dan panjang salah satu diagonalnya 12 cm. Panjang diagonal lainnya adalah...',
+                        options: ['15 cm', '7.5 cm', '30 cm', '10 cm'], correct: 0,
+                        d1: 12, d2: '?',
+                        explanation: '💡 <b>Pembahasan:</b><br>d₂ = (2 × Luas) ÷ d₁ = (2 × 90) ÷ 12 = 180 ÷ 12 = <b>15 cm</b>.'
+                    },
+                    {
+                        id: 15, type: 'layang', categoryLabel: '🪁 Layang-Layang',
+                        text: 'Panjang diagonal-diagonal layang-layang adalah 24 cm dan 15 cm. Berapa luas layang-layang tersebut?',
+                        options: ['360 cm²', '180 cm²', '39 cm²', '90 cm²'], correct: 1,
+                        d1: 24, d2: 15,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 24 × 15 = 12 × 15 = <b>180 cm²</b>.'
+                    },
+                    {
+                        id: 16, type: 'layang', categoryLabel: '🪁 Layang-Layang',
+                        text: 'Siti menggambar layang-layang dengan diagonal 8 cm dan 22 cm. Luas gambar Siti adalah...',
+                        options: ['88 cm²', '176 cm²', '30 cm²', '44 cm²'], correct: 0,
+                        d1: 22, d2: 8,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 8 × 22 = 4 × 22 = <b>88 cm²</b>.'
+                    },
+                    {
+                        id: 17, type: 'layang', categoryLabel: '🪁 Layang-Layang',
+                        text: 'Sebuah layang-layang besar memiliki d₁ = 30 cm dan d₂ = 16 cm. Luas layang-layang tersebut adalah...',
+                        options: ['480 cm²', '120 cm²', '240 cm²', '46 cm²'], correct: 2,
+                        d1: 30, d2: 16,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 30 × 16 = 15 × 16 = <b>240 cm²</b>.'
+                    },
+                    {
+                        id: 18, type: 'layang', categoryLabel: '🪁 Layang-Layang',
+                        text: 'Luas layang-layang adalah 100 cm². Jika diagonal 1 panjangnya 10 cm, berapa panjang diagonal 2?',
+                        options: ['10 cm', '20 cm', '5 cm', '40 cm'], correct: 1,
+                        d1: 10, d2: '?',
+                        explanation: '💡 <b>Pembahasan:</b><br>d₂ = (2 × Luas) ÷ d₁ = (2 × 100) ÷ 10 = 200 ÷ 10 = <b>20 cm</b>.'
+                    },
+                    {
+                        id: 19, type: 'layang', categoryLabel: '🪁 Layang-Layang',
+                        text: 'Berapakah luas layang-layang yang diagonal-diagonalnya 26 cm dan 10 cm?',
+                        options: ['130 cm²', '260 cm²', '36 cm²', '65 cm²'], correct: 0,
+                        d1: 26, d2: 10,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 26 × 10 = 13 × 10 = <b>130 cm²</b>.'
+                    },
+                    {
+                        id: 20, type: 'layang', categoryLabel: '🪁 Layang-Layang',
+                        text: 'Layang-layang memiliki diagonal 14 cm dan 14 cm. Luas layang-layang tersebut adalah...',
+                        options: ['196 cm²', '28 cm²', '98 cm²', '49 cm²'], correct: 2,
+                        d1: 14, d2: 14,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 14 × 14 = 7 × 14 = <b>98 cm²</b>.'
+                    },
+
+                    // --- BELAH KETUPAT (21-30) ---
+                    {
+                        id: 21, type: 'belah', categoryLabel: '💎 Belah Ketupat',
+                        text: 'Sebuah belah ketupat mempunyai diagonal d₁ = 12 cm dan d₂ = 16 cm. Hitunglah luasnya!',
+                        options: ['192 cm²', '96 cm²', '28 cm²', '48 cm²'], correct: 1,
+                        d1: 12, d2: 16,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × d₁ × d₂ = ½ × 12 × 16 = 6 × 16 = <b>96 cm²</b>.'
+                    },
+                    {
+                        id: 22, type: 'belah', categoryLabel: '💎 Belah Ketupat',
+                        text: 'Lantai hias berbentuk belah ketupat dengan diagonal 10 cm dan 24 cm. Luas lantai hias adalah...',
+                        options: ['120 cm²', '240 cm²', '34 cm²', '60 cm²'], correct: 0,
+                        d1: 10, d2: 24,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 10 × 24 = 5 × 24 = <b>120 cm²</b>.'
+                    },
+                    {
+                        id: 23, type: 'belah', categoryLabel: '💎 Belah Ketupat',
+                        text: 'Belah ketupat memiliki diagonal 18 cm dan 20 cm. Berapakah luas belah ketupat tersebut?',
+                        options: ['360 cm²', '38 cm²', '180 cm²', '90 cm²'], correct: 2,
+                        d1: 18, d2: 20,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 18 × 20 = 9 × 20 = <b>180 cm²</b>.'
+                    },
+                    {
+                        id: 24, type: 'belah', categoryLabel: '💎 Belah Ketupat',
+                        text: 'Taman bunga berbentuk belah ketupat dengan panjang d₁ = 8 meter dan d₂ = 12 meter. Luas taman adalah...',
+                        options: ['48 m²', '96 m²', '20 m²', '24 m²'], correct: 0,
+                        d1: 8, d2: 12, unit: 'm',
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 8 × 12 = 4 × 12 = <b>48 m²</b>.'
+                    },
+                    {
+                        id: 25, type: 'belah', categoryLabel: '💎 Belah Ketupat',
+                        text: 'Luas belah ketupat adalah 64 cm². Jika diagonal 1 adalah 16 cm, berapa panjang diagonal 2?',
+                        options: ['4 cm', '8 cm', '12 cm', '16 cm'], correct: 1,
+                        d1: 16, d2: '?',
+                        explanation: '💡 <b>Pembahasan:</b><br>d₂ = (2 × Luas) ÷ d₁ = (2 × 64) ÷ 16 = 128 ÷ 16 = <b>8 cm</b>.'
+                    },
+                    {
+                        id: 26, type: 'belah', categoryLabel: '💎 Belah Ketupat',
+                        text: 'Kue tradisional berbentuk belah ketupat dengan d₁ = 14 cm dan d₂ = 10 cm. Luas permukaan kue adalah...',
+                        options: ['140 cm²', '24 cm²', '70 cm²', '35 cm²'], correct: 2,
+                        d1: 14, d2: 10,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 14 × 10 = 7 × 10 = <b>70 cm²</b>.'
+                    },
+                    {
+                        id: 27, type: 'belah', categoryLabel: '💎 Belah Ketupat',
+                        text: 'Berapakah luas belah ketupat yang memiliki diagonal 22 cm dan 12 cm?',
+                        options: ['132 cm²', '264 cm²', '34 cm²', '66 cm²'], correct: 0,
+                        d1: 22, d2: 12,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 22 × 12 = 11 × 12 = <b>132 cm²</b>.'
+                    },
+                    {
+                        id: 28, type: 'belah', categoryLabel: '💎 Belah Ketupat',
+                        text: 'Panjang diagonal-diagonal belah ketupat adalah 30 cm dan 20 cm. Luas belah ketupat tersebut adalah...',
+                        options: ['600 cm²', '300 cm²', '50 cm²', '150 cm²'], correct: 1,
+                        d1: 30, d2: 20,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 30 × 20 = 15 × 20 = <b>300 cm²</b>.'
+                    },
+                    {
+                        id: 29, type: 'belah', categoryLabel: '💎 Belah Ketupat',
+                        text: 'Sebuah lambang berbentuk belah ketupat memiliki d₁ = 15 cm dan d₂ = 8 cm. Berapa luas lambang tersebut?',
+                        options: ['120 cm²', '23 cm²', '60 cm²', '30 cm²'], correct: 2,
+                        d1: 15, d2: 8,
+                        explanation: '💡 <b>Pembahasan:</b><br>Luas = ½ × 15 × 8 = 15 × 4 = <b>60 cm²</b>.'
+                    },
+                    {
+                        id: 30, type: 'belah', categoryLabel: '💎 Belah Ketupat',
+                        text: 'Luas belah ketupat adalah 150 cm². Jika panjang salah satu diagonalnya 15 cm, maka diagonal lainnya adalah...',
+                        options: ['10 cm', '20 cm', '15 cm', '30 cm'], correct: 1,
+                        d1: 15, d2: '?',
+                        explanation: '💡 <b>Pembahasan:</b><br>d₂ = (2 × Luas) ÷ d₁ = (2 × 150) ÷ 15 = 300 ÷ 15 = <b>20 cm</b>.'
+                    }
+                ],
+
+                get currentQ() {
+                    return this.questions[this.currentIdx];
+                },
+
+                renderSVG(q) {
+                    const u = q.unit || 'cm';
+                    if (q.type === 'segitiga') {
+                        if (q.shapeSubtype === 'siku') {
+                            return `
+                                <svg width="220" height="150" viewBox="0 0 220 150">
+                                    <polygon points="30,120 180,120 30,30" fill="#fbcfe8" stroke="#db2777" stroke-width="3" stroke-linejoin="round"/>
+                                    <rect x="30" y="105" width="15" height="15" fill="none" stroke="#db2777" stroke-width="2"/>
+                                    <text x="100" y="138" fill="#be185d" font-weight="bold" font-size="12">a = ${q.a} ${u}</text>
+                                    <text x="5" y="80" fill="#4f46e5" font-weight="bold" font-size="12">t = ${q.t} ${u}</text>
+                                </svg>
+                            `;
+                        } else {
+                            return `
+                                <svg width="220" height="150" viewBox="0 0 220 150">
+                                    <polygon points="20,120 200,120 110,25" fill="#fbcfe8" stroke="#db2777" stroke-width="3" stroke-linejoin="round"/>
+                                    <line x1="110" y1="25" x2="110" y2="120" stroke="#4f46e5" stroke-width="2" stroke-dasharray="4,4"/>
+                                    <rect x="110" y="108" width="12" height="12" fill="none" stroke="#4f46e5" stroke-width="1.5"/>
+                                    <text x="100" y="140" fill="#be185d" font-weight="bold" font-size="12">a = ${q.a} ${u}</text>
+                                    <text x="116" y="75" fill="#4f46e5" font-weight="bold" font-size="12">t = ${q.t} ${u}</text>
+                                </svg>
+                            `;
+                        }
+                    } else if (q.type === 'layang') {
+                        return `
+                            <svg width="220" height="160" viewBox="0 0 220 160">
+                                <polygon points="110,10 175,60 110,150 45,60" fill="#e9d5ff" stroke="#9333ea" stroke-width="3" stroke-linejoin="round"/>
+                                <line x1="110" y1="10" x2="110" y2="150" stroke="#4f46e5" stroke-width="2" stroke-dasharray="4,4"/>
+                                <line x1="45" y1="60" x2="175" y2="60" stroke="#db2777" stroke-width="2" stroke-dasharray="4,4"/>
+                                <text x="116" y="100" fill="#4f46e5" font-weight="bold" font-size="12">d₁ = ${q.d1} ${u}</text>
+                                <text x="116" y="52" fill="#be185d" font-weight="bold" font-size="12">d₂ = ${q.d2} ${u}</text>
+                            </svg>
+                        `;
+                    } else if (q.type === 'belah') {
+                        return `
+                            <svg width="220" height="160" viewBox="0 0 220 160">
+                                <polygon points="110,15 185,80 110,145 35,80" fill="#a7f3d0" stroke="#059669" stroke-width="3" stroke-linejoin="round"/>
+                                <line x1="110" y1="15" x2="110" y2="145" stroke="#4f46e5" stroke-width="2" stroke-dasharray="4,4"/>
+                                <line x1="35" y1="80" x2="185" y2="80" stroke="#db2777" stroke-width="2" stroke-dasharray="4,4"/>
+                                <text x="116" y="110" fill="#4f46e5" font-weight="bold" font-size="12">d₁ = ${q.d1} ${u}</text>
+                                <text x="116" y="72" fill="#be185d" font-weight="bold" font-size="12">d₂ = ${q.d2} ${u}</text>
+                            </svg>
+                        `;
+                    }
+                    return '';
+                },
+
+                initQuiz() {
+                    // Load saved progress from localStorage
+                    const saved = localStorage.getItem('bangunDatarQuizAnswers');
+                    if (saved) {
+                        try {
+                            this.userAnswers = JSON.parse(saved);
+                        } catch (e) {
+                            this.userAnswers = {};
+                        }
+                    }
+                },
+
+                selectAnswer(qId, oIdx) {
+                    if (this.userAnswers[qId] !== undefined) return;
+                    this.userAnswers[qId] = oIdx;
+                    // Save automatically to LocalStorage
+                    localStorage.setItem('bangunDatarQuizAnswers', JSON.stringify(this.userAnswers));
+                },
+
+                calculateScore() {
+                    let score = 0;
+                    this.questions.forEach(q => {
+                        if (this.userAnswers[q.id] === q.correct) {
+                            score++;
+                        }
+                    });
+                    return score;
+                },
+
+                answeredCount() {
+                    return Object.keys(this.userAnswers).length;
+                },
+
+                nextQ() {
+                    if (this.currentIdx < this.questions.length - 1) {
+                        this.currentIdx++;
+                    }
+                },
+
+                prevQ() {
+                    if (this.currentIdx > 0) {
+                        this.currentIdx--;
+                    }
+                },
+
+                resetQuiz() {
+                    if (confirm('Apakah kamu yakin ingin mengulang kuis dari awal? Semua jawaban akan dihapus.')) {
+                        this.userAnswers = {};
+                        this.currentIdx = 0;
+                        localStorage.removeItem('bangunDatarQuizAnswers');
+                    }
+                }
+            };
+        }
+    </script>
+</body>
+</html>
